@@ -751,6 +751,25 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:17px 0}
 
 .mm-token.mm-pending{cursor:pointer;border-radius:3px;padding:2px 4px;transition:all .15s}
 .mm-token.mm-pending:hover{background:rgba(37,99,235,.12)}
+
+/* ── Control Remoto ── */
+.rc-status{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:var(--paper2);border:1.5px solid var(--border);font-size:.82rem;font-weight:600;margin-bottom:10px;transition:border-color .3s}
+.rc-status.rc-on{border-color:#86EFAC;background:#F0FDF4}
+.rc-dot{width:9px;height:9px;border-radius:50%;background:#ccc;flex-shrink:0;transition:background .3s,box-shadow .3s}
+.rc-dot.connected{background:var(--green);box-shadow:0 0 7px rgba(22,163,74,.45)}
+.rc-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.rc-btn{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:9px;font-family:'Nunito',sans-serif;font-weight:800;font-size:.85rem;cursor:pointer;border:2px solid;transition:all .14s}
+.rc-btn:active{transform:scale(.96)}
+.rc-btn:disabled{opacity:.35;pointer-events:none}
+.rc-btn-nav{background:var(--purple-lt);border-color:#C4B5FD;color:var(--purple)}
+.rc-btn-nav:hover{background:#DDD6FE}
+.rc-btn-jump{background:var(--amber-lt);border-color:#FDE68A;color:#92400E}
+.rc-btn-jump:hover{background:#FDE68A}
+.rc-preview{font-size:.76rem;color:var(--muted);margin-bottom:10px;padding:7px 11px;background:var(--paper2);border-radius:8px;line-height:1.5;display:none;font-style:italic}
+.rc-preview.show{display:block}
+.rc-sel-row{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--paper);font-family:'Nunito',sans-serif;cursor:pointer;margin-bottom:6px;text-align:left;font-size:.83rem;transition:background .1s;color:var(--ink)}
+.rc-sel-row:hover{background:var(--paper2)}
+.rc-sel-num{min-width:26px;height:26px;border-radius:50%;background:var(--blue-lt);color:var(--blue);font-weight:800;font-size:.74rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 </style>
 
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,300&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
@@ -1406,12 +1425,27 @@ if(window.location.protocol === 'file:') {
       </div>
       <div id="tp-mis-list" style="margin-top:12px;display:none"></div>
     </div>
+    <div class="s-box" style="border-left:4px solid var(--purple)">
+      <div class="s-title">📺 Control Remoto del Proyector</div>
+      <div class="s-desc">Abre el proyector en una ventana aparte y controla la navegación desde aquí sin tocar esa pantalla.</div>
+      <div class="rc-status" id="rc-status">
+        <span class="rc-dot" id="rc-dot"></span>
+        <span id="rc-status-txt">Sin proyector conectado</span>
+      </div>
+      <div class="rc-preview" id="rc-preview"></div>
+      <div class="rc-controls">
+        <button type="button" class="rc-btn rc-btn-nav" id="rc-prev-btn" onclick="rcPrev()" disabled>← Anterior</button>
+        <button type="button" class="rc-btn rc-btn-nav" id="rc-next-btn" onclick="rcNext()" disabled>Siguiente →</button>
+        <button type="button" class="rc-btn rc-btn-jump" id="rc-jump-btn" onclick="rcOpenSelector()" disabled>📋 Elegir oración</button>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="rcOpenProj()" style="color:var(--purple);border-color:#DDD6FE;background:var(--purple-lt)">📺 Abrir Proyector en nueva ventana</button>
+    </div>
     <div class="s-box">
       <div class="s-title">⚡ Acciones rápidas</div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
         <button type="button" class="btn btn-ghost btn-sm" onclick="syncSents()" style="color:#1D4ED8;border-color:#BFDBFE;background:#EFF6FF">🔄 Sincronizar</button>
         <button type="button" class="btn btn-ghost btn-sm" onclick="dlResults()" style="color:#166534;border-color:#BBF7D0;background:#F0FDF4">📥 Descargar resultados</button>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="openProj()" style="color:var(--purple);border-color:#DDD6FE;background:var(--purple-lt)">📺 Proyector</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="openProj()" style="color:var(--purple);border-color:#DDD6FE;background:var(--purple-lt)">📺 Proyector (misma ventana)</button>
       </div>
     </div>
     <div class="gas-guide">
@@ -1469,6 +1503,21 @@ K: Sujeto_Pts · L: Funciones_Pts · M: NP_Pts · N: Sintagmas_Pts · O: Detalle
     <div class="succ-oracion" id="succ-oracion"></div>
     <div class="succ-badge" id="succ-badge" role="status"></div>
     <button type="button" id="succ-btn" class="btn btn-success btn-lg" onclick="doNextSentence()">Analizar la siguiente oración →</button>
+  </div>
+</div>
+
+<!-- RC SENTENCE SELECTOR (teacher remote) -->
+<div class="overlay" id="rc-sel-overlay" role="dialog" aria-modal="true">
+  <div class="ov-bg" onclick="rcCloseSelector()" aria-hidden="true"></div>
+  <div class="modal" style="max-width:600px;padding:0;overflow:hidden">
+    <div style="background:linear-gradient(135deg,var(--purple),var(--blue));padding:18px 24px;color:#fff">
+      <h2 style="font-size:1.1rem;font-weight:900;margin:0">📋 Saltar a oración</h2>
+      <p id="rc-sel-sub" style="font-size:.79rem;opacity:.8;margin:4px 0 0"></p>
+    </div>
+    <div id="rc-sel-list" style="padding:12px 16px;max-height:55vh;overflow-y:auto"></div>
+    <div style="padding:10px 16px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="rcCloseSelector()">Cerrar</button>
+    </div>
   </div>
 </div>
 
@@ -2567,6 +2616,7 @@ function renderGame(){
   // Show skip button only in practice mode
   const skipW=document.getElementById('game-skip-wrap');
   if(skipW) skipW.style.display=G.mode==='practice'?'block':'none';
+  if(G.mode==='projector')rcBroadcastState();
 }
 function transitionPhase(next){
   const el=document.getElementById('game-phase');
@@ -3799,6 +3849,8 @@ function checkTeacherPw(){
 // TEACHER PANEL
 // ════════════════════════════════════════════════════════
 function loadTeacherPanel(){
+  _rcUpdateUI(null);
+  setTimeout(_rcPing,300);
   document.getElementById('tp-apiurl').value=localStorage.getItem(LS_API)||'';
   document.getElementById('tp-pin').value=localStorage.getItem(LS_PIN)||'';
   document.getElementById('tp-pin-display').textContent=localStorage.getItem(LS_PIN)||'—';
@@ -4087,10 +4139,119 @@ document.addEventListener('keydown',e=>{
 });
 
 // ════════════════════════════════════════════════════════
+// CONTROL REMOTO (BroadcastChannel)
+// ════════════════════════════════════════════════════════
+const RC_CH='taller-proj-remote-v1';
+let _rcCh=null,_rcConnected=false,_rcLostTimer=null,_rcSents=[];
+
+function initRC(){
+  if(!window.BroadcastChannel)return;
+  _rcCh=new BroadcastChannel(RC_CH);
+  _rcCh.onmessage=(e)=>{
+    const m=e.data;if(!m)return;
+    if(m.type==='state'||m.type==='pong')_rcOnState(m);
+    else if(m.type==='cmd')_rcOnCmd(m);
+    else if(m.type==='ping')rcBroadcastState();
+  };
+}
+
+// Projector → teacher: broadcast current state
+function rcBroadcastState(){
+  if(!_rcCh||G.mode!=='projector')return;
+  _rcCh.postMessage({
+    type:'state',idx:G.idx,
+    total:G.oraciones?.length||0,
+    sentence:G.oraciones?.[G.idx]?.oracion_completa||'',
+    sents:(G.oraciones||[]).map((o,i)=>({i,txt:(o.oracion_completa||o.palabras?.join(' ')||'').slice(0,80)}))
+  });
+}
+
+// Projector receives command from teacher panel
+function _rcOnCmd(m){
+  if(G.mode!=='projector')return;
+  if(m.cmd==='prev'){projPrevSentence();}
+  else if(m.cmd==='next'){
+    const so=document.getElementById('succ-overlay');
+    if(so&&so.classList.contains('open')){doNextSentence();}
+    else{const nxt=Math.min(G.idx+1,(G.oraciones?.length||1)-1);if(nxt!==G.idx){G.idx=nxt;resetSentenceState();renderGame();}}
+  }
+  else if(m.cmd==='jump'&&typeof m.idx==='number'){jumpToSentence(m.idx);}
+}
+
+// Teacher panel receives state update from projector
+function _rcOnState(m){
+  _rcConnected=true;
+  if(m.sents&&m.sents.length)_rcSents=m.sents;
+  clearTimeout(_rcLostTimer);
+  _rcLostTimer=setTimeout(()=>{_rcConnected=false;_rcUpdateUI(null);},6000);
+  _rcUpdateUI(m);
+}
+
+// Teacher sends command to projector
+function _rcSend(cmd,extra){
+  if(!_rcCh)return;
+  _rcCh.postMessage({type:'cmd',cmd,...(extra||{})});
+}
+
+// Teacher pings projector to check if alive
+function _rcPing(){if(_rcCh)_rcCh.postMessage({type:'ping'});}
+
+// Remote control buttons (called from teacher panel)
+function rcPrev(){_rcSend('prev');}
+function rcNext(){_rcSend('next');}
+function rcJump(idx){_rcSend('jump',{idx});rcCloseSelector();}
+
+// Update teacher panel remote control UI
+function _rcUpdateUI(state){
+  const dot=document.getElementById('rc-dot');
+  const statusEl=document.getElementById('rc-status');
+  const txt=document.getElementById('rc-status-txt');
+  const preview=document.getElementById('rc-preview');
+  if(!dot||!txt)return;
+  const ids=['rc-prev-btn','rc-next-btn','rc-jump-btn'];
+  if(!state||!_rcConnected){
+    dot.classList.remove('connected');
+    statusEl.classList.remove('rc-on');
+    txt.textContent='Sin proyector conectado';
+    if(preview)preview.classList.remove('show');
+    ids.forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=true;});
+    return;
+  }
+  dot.classList.add('connected');
+  statusEl.classList.add('rc-on');
+  txt.textContent=`Conectado · Oración ${state.idx+1} de ${state.total}`;
+  if(preview&&state.sentence){preview.textContent=state.sentence;preview.classList.add('show');}
+  ids.forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=false;});
+}
+
+// Open projector in a new window
+function rcOpenProj(){
+  const url=new URL(location.href);
+  url.searchParams.set('projector','1');
+  const w=window.open(url.toString(),'taller-proj','width=1280,height=800,menubar=no,toolbar=no,location=no,status=no');
+  if(w)w.focus();
+  // Ping a few times to wait for projector to init
+  [1400,2800,4500].forEach(ms=>setTimeout(_rcPing,ms));
+}
+
+// Teacher remote sentence selector
+function rcOpenSelector(){
+  if(!_rcConnected||!_rcSents.length){flashTp('El proyector no está conectado.','var(--amber)');return;}
+  const list=document.getElementById('rc-sel-list');
+  const sub=document.getElementById('rc-sel-sub');
+  if(!list)return;
+  sub.textContent=`${_rcSents.length} oraciones · haz clic para saltar directamente`;
+  list.innerHTML=_rcSents.map(s=>`<button type="button" class="rc-sel-row" onclick="rcJump(${s.i})"><span class="rc-sel-num">${s.i+1}</span><span>${s.txt}…</span></button>`).join('');
+  openOverlay('rc-sel-overlay');
+}
+function rcCloseSelector(){closeOverlay('rc-sel-overlay');}
+
+// ════════════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',async()=>{
   console.log('[App] DOMContentLoaded — v5.0');
+  initRC();
   try {
     initSoundBtn();
     const savedUrl = localStorage.getItem(LS_API);
@@ -4098,8 +4259,15 @@ window.addEventListener('DOMContentLoaded',async()=>{
       document.getElementById('loading-txt').textContent = 'Verificando conexión…';
       fetchWithTimeout(savedUrl, {method:'HEAD'}, 3000).catch(e => console.warn('[App] API ping failed:', e.message));
     }
-    await delay(300);
-    showScreen('screen-portada');
+    // Auto-launch projector if opened via rcOpenProj()
+    const urlParams=new URLSearchParams(location.search);
+    if(urlParams.get('projector')==='1'){
+      await delay(200);
+      openProj();
+    } else {
+      await delay(300);
+      showScreen('screen-portada');
+    }
     console.log('[App] Portada shown OK');
   } catch(e) {
     console.error('[App] Init error:', e);
